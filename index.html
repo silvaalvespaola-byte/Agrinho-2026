@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador AgroSustentável - Agrinho 2026</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background-color: #e8f5e9; margin: 0; }
+        canvas { border: 4px solid #2e7d32; background-color: #8bc34a; cursor: crosshair; margin-top: 20px; }
+        .info { background: #2e7d32; color: white; padding: 10px; font-size: 1.2rem; }
+        .instrucoes { padding: 15px; color: #333; max-width: 600px; margin: 0 auto; }
+        span { font-weight: bold; color: #ffd700; }
+    </style>
+</head>
+<body>
+
+    <div class="info">
+        Pontos: <span id="score">0</span> | 
+        Tanque: <span id="fuel">100</span>% | 
+        Impacto Ambiental: <span id="impact">0</span>
+    </div>
+
+    <div class="instrucoes">
+        <strong>Missão:</strong> Pulverize as pragas (quadrados marrons) clicando/segurando. <br>
+        <strong>Cuidado:</strong> Não atinja as flores (círculos coloridos) para manter o equilíbrio!
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const fuelEl = document.getElementById('fuel');
+        const impactEl = document.getElementById('impact');
+
+        let score = 0;
+        let fuel = 100;
+        let impact = 0;
+        let targets = [];
+        let flowers = [];
+
+        // Criar objetos (Pragas e Flores)
+        function spawnObjects() {
+            if (Math.random() < 0.05) {
+                targets.push({ x: Math.random() * canvas.width, y: -20, speed: 1 + Math.random() * 2 });
+            }
+            if (Math.random() < 0.02) {
+                flowers.push({ x: Math.random() * canvas.width, y: -20, speed: 1.5 });
+            }
+        }
+
+        function update() {
+            if (fuel <= 0)

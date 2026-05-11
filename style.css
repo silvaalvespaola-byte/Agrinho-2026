@@ -1,0 +1,39 @@
+/* Configurações Gerais */
+body {
+  background-color: #f4f4f9;
+  color: #333;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+/* Título */
+h1 {
+  color: #2c3e50;
+  margin-bottom: 20px;
+}
+
+/* Estilo do Botão */
+.botao-principal {
+  background-color: #2ecc71; /* Verde */
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  font-weight: bold;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Efeito ao passar o mouse */
+.botao-principal:hover {
+  background-color: #27ae60;
+  transform: translateY(-2px); /* Efeito de flutuar */
+  cursor: pointer;
+}
