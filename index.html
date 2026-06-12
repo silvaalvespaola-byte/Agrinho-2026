@@ -3,52 +3,419 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador AgroSustentável - Agrinho 2026</title>
-    <style>
-        body { font-family: sans-serif; text-align: center; background-color: #e8f5e9; margin: 0; }
-        canvas { border: 4px solid #2e7d32; background-color: #8bc34a; cursor: crosshair; margin-top: 20px; }
-        .info { background: #2e7d32; color: white; padding: 10px; font-size: 1.2rem; }
-        .instrucoes { padding: 15px; color: #333; max-width: 600px; margin: 0 auto; }
-        span { font-weight: bold; color: #ffd700; }
-    </style>
+    <title>🌱 Missão Agro: Colhendo o Futuro</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <header>
+        <div class="brand">
+            <span>🌾</span>
+            <div>
+                <h1>Missão Agro: Colhendo o Futuro</h1>
+                <p>Controle o trator, colha o milho e descarregue no caminhão.</p>
+            </div>
+        </div>
+    </header>
 
-    <div class="info">
-        Pontos: <span id="score">0</span> | 
-        Tanque: <span id="fuel">100</span>% | 
-        Impacto Ambiental: <span id="impact">0</span>
+    <section class="status">
+        <div><strong>Milhos colhidos:</strong> <span id="harvested">0</span></div>
+        <div><strong>Carga do trator:</strong> <span id="tractorCargo">0</span> / <span id="tractorCapacity">12</span></div>
+        <div><strong>Carga do caminhão:</strong> <span id="truckLoad">0</span> / <span id="truckCapacity">18</span></div>
+        <div id="message">Entre no campo quadrado e pressione <strong>ESPAÇO</strong> para colher.</div>
+    </section>
+
+    <div id="startScreen" class="start-screen">
+        <div class="start-card">
+            <h2>Bem-vindo à Missão Agro</h2>
+            <p>Prepare-se para colher milho, carregar o caminhão e completar a safra.</p>
+            <ul>
+                <li>Use setas ou WASD para dirigir o trator</li>
+                <li>Pressione <strong>ESPAÇO</strong> para colher</li>
+                <li>Pressione <strong>D</strong> para descarregar no caminhão</li>
+                <li>Pressione <strong>R</strong> para reiniciar após encher o caminhão</li>
+            </ul>
+            <button id="startButton">Começar Jogo</button>
+            <small>Pressione <strong>ENTER</strong> ou clique no botão para iniciar.</small>
+        </div>
     </div>
 
-    <div class="instrucoes">
-        <strong>Missão:</strong> Pulverize as pragas (quadrados marrons) clicando/segurando. <br>
-        <strong>Cuidado:</strong> Não atinja as flores (círculos coloridos) para manter o equilíbrio!
-    </div>
+    <canvas id="gameCanvas" width="900" height="520"></canvas>
 
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <footer>
+        <p>Setas ou WASD para mover • Espaço para colher • D para descarregar • R para reiniciar</p>
+    </footer>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const scoreEl = document.getElementById('score');
-        const fuelEl = document.getElementById('fuel');
-        const impactEl = document.getElementById('impact');
+        const harvestedEl = document.getElementById('harvested');
+        const tractorCargoEl = document.getElementById('tractorCargo');
+        const tractorCapacityEl = document.getElementById('tractorCapacity');
+        const truckLoadEl = document.getElementById('truckLoad');
+        const truckCapacityEl = document.getElementById('truckCapacity');
+        const messageEl = document.getElementById('message');
 
-        let score = 0;
-        let fuel = 100;
-        let impact = 0;
-        let targets = [];
-        let flowers = [];
+        const field = { x: 70, y: 120, width: 300, height: 300 };
+        const truckStart = { x: 520, y: 190, width: 180, height: 110 };
+        const truck = { x: truckStart.x, y: truckStart.y, width: truckStart.width, height: truckStart.height, load: 0, capacity: 18 };
+        const factory = { x: 730, y: 80, width: 150, height: 130 };
+        const tractor = { x: field.x + field.width / 2 - 30, y: field.y + field.height + 38, width: 62, height: 30, speed: 3.6, cargo: 0, capacity: 12 };
+        const corns = [];
+        const keys = {};
+        let harvestedTotal = 0;
+        let lastAction = 0;
+        let readyToRestart = false;
+        let gameStarted = false;
+        let gamePhase = 'waiting';
+        let deliveryTimer = 0;
 
-        // Criar objetos (Pragas e Flores)
-        function spawnObjects() {
-            if (Math.random() < 0.05) {
-                targets.push({ x: Math.random() * canvas.width, y: -20, speed: 1 + Math.random() * 2 });
+        function initCorns() {
+            corns.length = 0;
+            const rows = 4;
+            const cols = 6;
+            const xSpacing = field.width / (cols + 1);
+            const ySpacing = field.height / (rows + 1);
+
+            for (let row = 1; row <= rows; row++) {
+                for (let col = 1; col <= cols; col++) {
+                    corns.push({
+                        x: field.x + xSpacing * col,
+                        y: field.y + ySpacing * row,
+                        harvested: false
+                    });
+                }
             }
-            if (Math.random() < 0.02) {
-                flowers.push({ x: Math.random() * canvas.width, y: -20, speed: 1.5 });
+        }
+
+        function resetGame() {
+            tractor.x = field.x + field.width / 2 - tractor.width / 2;
+            tractor.y = field.y + field.height + 38;
+            tractor.cargo = 0;
+            truck.x = truckStart.x;
+            truck.y = truckStart.y;
+            truck.load = 0;
+            harvestedTotal = 0;
+            readyToRestart = false;
+            deliveryTimer = 0;
+            gamePhase = gameStarted ? 'playing' : 'waiting';
+            initCorns();
+            updateStatus();
+            setMessage('Entre no campo quadrado e pressione ESPAÇO para colher.');
+        }
+
+        function startGame() {
+            gameStarted = true;
+            document.getElementById('startScreen').classList.add('hidden');
+            canvas.classList.remove('hidden');
+            resetGame();
+            gamePhase = 'playing';
+            setMessage('Jogo iniciado! Colha o milho e carregue o caminhão.');
+        }
+
+        function updateStatus() {
+            harvestedEl.textContent = harvestedTotal;
+            tractorCargoEl.textContent = tractor.cargo;
+            tractorCapacityEl.textContent = tractor.capacity;
+            truckLoadEl.textContent = truck.load;
+            truckCapacityEl.textContent = truck.capacity;
+        }
+
+        function setMessage(text) {
+            messageEl.innerHTML = text;
+        }
+
+        function clamp(value, min, max) {
+            return Math.min(Math.max(value, min), max);
+        }
+
+        function distance(a, b) {
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function moveTractor() {
+            if (keys.ArrowLeft || keys.KeyA) tractor.x -= tractor.speed;
+            if (keys.ArrowRight || keys.KeyD) tractor.x += tractor.speed;
+            if (keys.ArrowUp || keys.KeyW) tractor.y -= tractor.speed;
+            if (keys.ArrowDown || keys.KeyS) tractor.y += tractor.speed;
+
+            tractor.x = clamp(tractor.x, 0, canvas.width - tractor.width);
+            tractor.y = clamp(tractor.y, 0, canvas.height - tractor.height);
+        }
+
+        function harvestCorn() {
+            if (!keys.Space) return;
+            const now = Date.now();
+            if (now - lastAction < 220) return;
+            lastAction = now;
+
+            const tractorCenter = { x: tractor.x + tractor.width / 2, y: tractor.y + tractor.height / 2 };
+            const harvestable = corns.filter(corn => !corn.harvested && distance(tractorCenter, corn) < 55);
+
+            if (harvestable.length === 0) {
+                setMessage('Chegue mais perto do milho no terreno quadrado para colher.');
+                return;
+            }
+
+            if (tractor.cargo >= tractor.capacity) {
+                setMessage('Seu trator está cheio! Vá ao caminhão e descarregue.');
+                return;
+            }
+
+            harvestable.slice(0, tractor.capacity - tractor.cargo).forEach(corn => {
+                corn.harvested = true;
+                tractor.cargo += 1;
+                harvestedTotal += 1;
+            });
+            updateStatus();
+            setMessage('Colheu ' + Math.min(harvestable.length, tractor.capacity - tractor.cargo) + ' sacas! Vá para o caminhão.');
+        }
+
+        function unloadTruck() {
+            if (gamePhase !== 'playing') return;
+            if (!keys.KeyD) return;
+            const now = Date.now();
+            if (now - lastAction < 220) return;
+            lastAction = now;
+
+            const truckCenter = { x: truck.x + truck.width / 2, y: truck.y + truck.height / 2 };
+            const tractorCenter = { x: tractor.x + tractor.width / 2, y: tractor.y + tractor.height / 2 };
+            if (distance(truckCenter, tractorCenter) > 90) {
+                setMessage('Aproxime-se do caminhão para descarregar.');
+                return;
+            }
+
+            if (tractor.cargo === 0) {
+                setMessage('O trator está vazio. Colha milho antes de descarregar.');
+                return;
+            }
+
+            const unloadAmount = Math.min(tractor.cargo, truck.capacity - truck.load);
+            truck.load += unloadAmount;
+            tractor.cargo -= unloadAmount;
+            updateStatus();
+            setMessage('Descarregou ' + unloadAmount + ' sacas no caminhão.');
+
+            if (truck.load === truck.capacity) {
+                gamePhase = 'delivering';
+                readyToRestart = false;
+                setMessage('Caminhão cheio! Ele está indo para a fábrica. Continue colhendo enquanto espera o retorno.');
+            }
+        }
+
+        function checkRestart() {
+            if (keys.KeyR && readyToRestart) {
+                resetGame();
             }
         }
 
         function update() {
-            if (fuel <= 0)
+            if (!gameStarted) return;
+            moveTractor();
+            harvestCorn();
+            unloadTruck();
+
+            if (gamePhase === 'delivering') {
+                truck.x += 2.4;
+                if (truck.x >= factory.x - truck.width - 12) {
+                    gamePhase = 'atFactory';
+                    deliveryTimer = 0;
+                    setMessage('Caminhão chegou à fábrica. Processando carga...');
+                }
+            }
+
+            if (gamePhase === 'atFactory') {
+                deliveryTimer += 1;
+                if (deliveryTimer > 90) {
+                    truck.load = 0;
+                    updateStatus();
+                    gamePhase = 'returning';
+                    setMessage('Carga entregue! Caminhão voltando para a fazenda.');
+                }
+            }
+
+            if (gamePhase === 'returning') {
+                truck.x -= 2.4;
+                if (truck.x <= truckStart.x) {
+                    truck.x = truckStart.x;
+                    gamePhase = 'playing';
+                    setMessage('Caminhão de volta à fazenda. Continue carregando a próxima safra.');
+                }
+            }
+
+            checkRestart();
+        }
+
+        function drawField() {
+            ctx.fillStyle = '#dcedc8';
+            ctx.fillRect(field.x, field.y, field.width, field.height);
+            ctx.fillStyle = 'rgba(92, 107, 51, 0.12)';
+            for (let y = field.y; y < field.y + field.height; y += 18) {
+                ctx.fillRect(field.x, y, field.width, 10);
+            }
+            ctx.strokeStyle = '#558b2f';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(field.x, field.y, field.width, field.height);
+            ctx.fillStyle = '#33691e';
+            ctx.font = '18px sans-serif';
+            ctx.fillText('Terreno de Milho', field.x + 12, field.y - 14);
+        }
+
+        function drawFactory() {
+            ctx.fillStyle = '#7b8e10';
+            ctx.fillRect(factory.x, factory.y, factory.width, factory.height);
+            ctx.fillStyle = '#aed581';
+            ctx.fillRect(factory.x + 12, factory.y + 14, factory.width - 24, 20);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '16px sans-serif';
+            ctx.fillText('FÁBRICA', factory.x + 18, factory.y + 32);
+            ctx.fillStyle = '#4e342e';
+            ctx.fillRect(factory.x + 18, factory.y + 54, factory.width - 36, 20);
+            ctx.fillStyle = '#4e342e';
+            ctx.beginPath();
+            ctx.moveTo(factory.x + 12, factory.y + 74);
+            ctx.lineTo(factory.x + 36, factory.y + 34);
+            ctx.lineTo(factory.x + 58, factory.y + 74);
+            ctx.lineTo(factory.x + 80, factory.y + 34);
+            ctx.lineTo(factory.x + 102, factory.y + 74);
+            ctx.lineTo(factory.x + 128, factory.y + 34);
+            ctx.lineTo(factory.x + 138, factory.y + 74);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawCorns() {
+            corns.forEach(corn => {
+                if (corn.harvested) {
+                    ctx.fillStyle = '#8d6e63';
+                    ctx.fillRect(corn.x - 6, corn.y + 10, 14, 8);
+                } else {
+                    ctx.fillStyle = '#f9a825';
+                    ctx.fillRect(corn.x - 8, corn.y - 16, 16, 32);
+                    ctx.fillStyle = '#388e3c';
+                    ctx.beginPath();
+                    ctx.moveTo(corn.x, corn.y - 16);
+                    ctx.lineTo(corn.x - 14, corn.y + 12);
+                    ctx.lineTo(corn.x + 14, corn.y + 12);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '10px sans-serif';
+                    ctx.fillText('MILHO', corn.x - 14, corn.y + 28);
+                }
+            });
+        }
+
+        function drawTractor() {
+            ctx.save();
+            ctx.translate(tractor.x + tractor.width / 2, tractor.y + tractor.height / 2);
+            ctx.fillStyle = '#1e4620';
+            ctx.fillRect(-tractor.width / 2, -tractor.height / 2, tractor.width, tractor.height);
+            ctx.fillStyle = '#2e7d32';
+            ctx.fillRect(-tractor.width / 2 + 8, -tractor.height / 2 - 12, 36, 14);
+            ctx.fillStyle = '#4e342e';
+            ctx.beginPath();
+            ctx.arc(-18, tractor.height / 2 - 2, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(18, tractor.height / 2 - 2, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffd54f';
+            ctx.fillRect(-tractor.width / 2 + 4, -tractor.height / 2 + 4, 12, 8);
+            ctx.restore();
+        }
+
+        function drawTruck() {
+            ctx.fillStyle = '#546e7a';
+            ctx.fillRect(truck.x, truck.y, truck.width, truck.height);
+            ctx.fillStyle = '#37474f';
+            ctx.fillRect(truck.x + truck.width - 56, truck.y - 24, 56, 24);
+            ctx.fillStyle = '#263238';
+            ctx.beginPath();
+            ctx.arc(truck.x + 40, truck.y + truck.height, 18, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(truck.x + truck.width - 40, truck.y + truck.height, 18, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '15px sans-serif';
+            ctx.fillText('CAMINHÃO', truck.x + 18, truck.y + 30);
+            ctx.fillStyle = '#aed581';
+            ctx.fillRect(truck.x + 18, truck.y + truck.height + 18, truck.width - 36, 14);
+            const progress = truck.load / truck.capacity;
+            ctx.fillStyle = '#689f38';
+            ctx.fillRect(truck.x + 18, truck.y + truck.height + 18, (truck.width - 36) * progress, 14);
+            ctx.strokeStyle = '#33691e';
+            ctx.strokeRect(truck.x + 18, truck.y + truck.height + 18, truck.width - 36, 14);
+        }
+
+        function drawTractorHalo() {
+            ctx.save();
+            ctx.globalAlpha = 0.18;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(tractor.x + tractor.width / 2, tractor.y + tractor.height / 2, 52, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ecf8f1';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#aed581';
+            ctx.fillRect(0, 0, canvas.width, 110);
+            ctx.fillStyle = '#1b5e20';
+            ctx.font = '26px sans-serif';
+            ctx.fillText('Agro Forte, Futuro Sustentável', 70, 60);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '14px sans-serif';
+            ctx.fillText('Campo de colheita à esquerda • Caminhão à direita', 70, 90);
+
+            drawField();
+            drawFactory();
+            drawCorns();
+            drawTractorHalo();
+            drawTractor();
+            drawTruck();
+
+            ctx.fillStyle = '#33691e';
+            ctx.font = '15px sans-serif';
+            ctx.fillText('Espaço: colher milho | D: descarregar | R: reiniciar', 560, 400);
+            ctx.fillText('Use setas ou WASD para dirigir o trator.', 560, 424);
+            if (gamePhase === 'delivering') {
+                ctx.fillText('Caminhão indo para a fábrica...', 560, 440);
+            } else if (gamePhase === 'atFactory') {
+                ctx.fillText('Caminhão na fábrica. Aguarde a entrega...', 560, 440);
+            } else if (gamePhase === 'returning') {
+                ctx.fillText('Caminhão voltando para a fazenda.', 560, 440);
+            }
+        }
+
+        window.addEventListener('keydown', (event) => {
+            if (!gameStarted && event.code === 'Enter') {
+                startGame();
+            }
+            keys[event.code] = true;
+        });
+        window.addEventListener('keyup', (event) => {
+            keys[event.code] = false;
+        });
+
+        document.getElementById('startButton').addEventListener('click', startGame);
+
+        initCorns();
+        resetGame();
+        canvas.classList.add('hidden');
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+</html>
