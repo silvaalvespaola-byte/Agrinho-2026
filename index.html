@@ -32,10 +32,18 @@
                 <li>Use setas ou WASD para dirigir o trator</li>
                 <li>Pressione <strong>ESPAÇO</strong> para colher</li>
                 <li>Pressione <strong>D</strong> para descarregar no caminhão</li>
-                <li>Pressione <strong>R</strong> para reiniciar após encher o caminhão</li>
+                <li>Você terá um segundo nível: o caminhão vai até a fábrica e volta para a fazenda</li>
             </ul>
             <button id="startButton">Começar Jogo</button>
             <small>Pressione <strong>ENTER</strong> ou clique no botão para iniciar.</small>
+        </div>
+    </div>
+
+    <div id="endScreen" class="start-screen hidden">
+        <div class="start-card">
+            <h2>Jogo Concluído</h2>
+            <p>O caminhão entregou a carga na fábrica e voltou para a fazenda.</p>
+            <button id="restartButton">Jogar Novamente</button>
         </div>
     </div>
 
@@ -106,10 +114,17 @@
         function startGame() {
             gameStarted = true;
             document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('endScreen').classList.add('hidden');
             canvas.classList.remove('hidden');
             resetGame();
             gamePhase = 'playing';
             setMessage('Jogo iniciado! Colha o milho e carregue o caminhão.');
+        }
+
+        function endGame() {
+            gamePhase = 'completed';
+            document.getElementById('endScreen').classList.remove('hidden');
+            setMessage('Parabéns! Você concluiu a missão.');
         }
 
         function updateStatus() {
@@ -212,9 +227,12 @@
 
         function update() {
             if (!gameStarted) return;
-            moveTractor();
-            harvestCorn();
-            unloadTruck();
+
+            if (gamePhase === 'playing') {
+                moveTractor();
+                harvestCorn();
+                unloadTruck();
+            }
 
             if (gamePhase === 'delivering') {
                 truck.x += 2.4;
@@ -239,8 +257,9 @@
                 truck.x -= 2.4;
                 if (truck.x <= truckStart.x) {
                     truck.x = truckStart.x;
-                    gamePhase = 'playing';
-                    setMessage('Caminhão de volta à fazenda. Continue carregando a próxima safra.');
+                    gamePhase = 'completed';
+                    setMessage('Caminhão de volta à fazenda! Missão concluída.');
+                    endGame();
                 }
             }
 
@@ -406,6 +425,7 @@
         });
 
         document.getElementById('startButton').addEventListener('click', startGame);
+        document.getElementById('restartButton').addEventListener('click', startGame);
 
         initCorns();
         resetGame();
