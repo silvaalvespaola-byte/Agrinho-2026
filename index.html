@@ -63,11 +63,17 @@
         const truckCapacityEl = document.getElementById('truckCapacity');
         const messageEl = document.getElementById('message');
 
-        const field = { x: 70, y: 120, width: 300, height: 300 };
-        const truckStart = { x: 520, y: 190, width: 180, height: 110 };
+        const field = { x: 70, y: 140, width: 320, height: 250 };
+        const truckStart = { x: 420, y: 360, width: 150, height: 90 };
         const truck = { x: truckStart.x, y: truckStart.y, width: truckStart.width, height: truckStart.height, load: 0, capacity: 18 };
-        const factory = { x: 730, y: 80, width: 150, height: 130 };
-        const tractor = { x: field.x + field.width / 2 - 30, y: field.y + field.height + 38, width: 62, height: 30, speed: 3.6, cargo: 0, capacity: 12 };
+        const factory = { x: 680, y: 70, width: 210, height: 170 };
+        const route = {
+            farmExitY: 280,
+            roadY: 280,
+            factoryEntryX: factory.x - truck.width - 18,
+            factoryEntryY: factory.y + factory.height - 44
+        };
+        const tractor = { x: field.x + field.width / 2 - 30, y: field.y + field.height + 18, width: 62, height: 30, speed: 3.8, cargo: 0, capacity: 12 };
         const corns = [];
         const keys = {};
         let harvestedTotal = 0;
@@ -215,7 +221,7 @@
             if (truck.load === truck.capacity) {
                 gamePhase = 'delivering';
                 readyToRestart = false;
-                setMessage('Caminhão cheio! Ele está indo para a fábrica. Continue colhendo enquanto espera o retorno.');
+                setMessage('Caminhão cheio! Ele vai sair da fazenda pela estrada até a fábrica.');
             }
         }
 
@@ -235,11 +241,16 @@
             }
 
             if (gamePhase === 'delivering') {
-                truck.x += 2.4;
-                if (truck.x >= factory.x - truck.width - 12) {
+                if (truck.y > route.farmExitY) {
+                    truck.y = Math.max(truck.y - truck.speed, route.farmExitY);
+                } else if (truck.x < route.factoryEntryX) {
+                    truck.x = Math.min(truck.x + truck.speed, route.factoryEntryX);
+                } else if (truck.y > route.factoryEntryY) {
+                    truck.y = Math.max(truck.y - truck.speed, route.factoryEntryY);
+                } else {
                     gamePhase = 'atFactory';
                     deliveryTimer = 0;
-                    setMessage('Caminhão chegou à fábrica. Processando carga...');
+                    setMessage('Caminhão chegou à fábrica pela estrada. Processando o descarregamento...');
                 }
             }
 
@@ -249,16 +260,20 @@
                     truck.load = 0;
                     updateStatus();
                     gamePhase = 'returning';
-                    setMessage('Carga entregue! Caminhão voltando para a fazenda.');
+                    setMessage('Carga entregue! Caminhão voltando para a fazenda pela estrada.');
                 }
             }
 
             if (gamePhase === 'returning') {
-                truck.x -= 2.4;
-                if (truck.x <= truckStart.x) {
+                if (truck.y < route.farmExitY) {
+                    truck.y = Math.min(truck.y + truck.speed, route.farmExitY);
+                } else if (truck.x > truckStart.x) {
+                    truck.x = Math.max(truck.x - truck.speed, truckStart.x);
+                } else {
                     truck.x = truckStart.x;
+                    truck.y = truckStart.y;
                     gamePhase = 'completed';
-                    setMessage('Caminhão de volta à fazenda! Missão concluída.');
+                    setMessage('Caminhão voltou à fazenda! Missão concluída.');
                     endGame();
                 }
             }
@@ -266,63 +281,158 @@
             checkRestart();
         }
 
-        function drawField() {
-            ctx.fillStyle = '#dcedc8';
-            ctx.fillRect(field.x, field.y, field.width, field.height);
-            ctx.fillStyle = 'rgba(92, 107, 51, 0.12)';
-            for (let y = field.y; y < field.y + field.height; y += 18) {
-                ctx.fillRect(field.x, y, field.width, 10);
-            }
-            ctx.strokeStyle = '#558b2f';
+        function drawFence() {
+            ctx.strokeStyle = '#8d6e63';
             ctx.lineWidth = 4;
-            ctx.strokeRect(field.x, field.y, field.width, field.height);
+            for (let y = field.y - 4; y < field.y + field.height + 24; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(field.x - 40, y);
+                ctx.lineTo(field.x - 16, y);
+                ctx.stroke();
+            }
+            for (let x = field.x - 40; x <= field.x + field.width + 18; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, field.y + field.height + 14);
+                ctx.lineTo(x, field.y + field.height + 28);
+                ctx.stroke();
+            }
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(field.x - 40, field.y + field.height + 12);
+            ctx.lineTo(field.x + field.width + 18, field.y + field.height + 12);
+            ctx.stroke();
+        }
+
+        function drawFarmBuildings() {
+            ctx.fillStyle = '#ad1457';
+            ctx.fillRect(field.x - 88, field.y - 110, 90, 90);
+            ctx.fillStyle = '#f06292';
+            ctx.beginPath();
+            ctx.moveTo(field.x - 88, field.y - 110);
+            ctx.lineTo(field.x - 43, field.y - 145);
+            ctx.lineTo(field.x + 2, field.y - 110);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(field.x - 63, field.y - 40, 24, 28);
+            ctx.fillStyle = '#880e4f';
+            ctx.fillRect(field.x - 80, field.y - 42, 90, 12);
+
+            ctx.fillStyle = '#cfd8dc';
+            ctx.fillRect(field.x - 16, field.y - 180, 40, 100);
+            ctx.fillStyle = '#b0bec5';
+            ctx.fillRect(field.x - 16, field.y - 180, 40, 18);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(field.x - 14, field.y - 70, 10, 20);
+            ctx.fillRect(field.x + 8, field.y - 70, 10, 20);
+
             ctx.fillStyle = '#33691e';
             ctx.font = '18px sans-serif';
-            ctx.fillText('Terreno de Milho', field.x + 12, field.y - 14);
+            ctx.fillText('FAZENDA', field.x - 90, field.y - 128);
+        }
+
+        function drawRoad() {
+            const roadWidth = 72;
+            const roadX = truckStart.x + truckStart.width / 2 - roadWidth / 2;
+            const roadEnd = factory.x - 18;
+
+            ctx.fillStyle = '#6d6e71';
+            ctx.fillRect(roadX, route.roadY, roadEnd - roadX, roadWidth);
+            ctx.fillRect(roadX + roadWidth / 2 - 8, route.roadY + roadWidth, 16, truckStart.y + truckStart.height - route.roadY);
+
+            ctx.strokeStyle = '#f3f3f3';
+            ctx.lineWidth = 6;
+            ctx.setLineDash([20, 18]);
+            ctx.beginPath();
+            ctx.moveTo(roadX + roadWidth / 2, route.roadY + 12);
+            ctx.lineTo(roadEnd - 12, route.roadY + 12);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(roadX + roadWidth / 2, route.roadY + roadWidth - 12);
+            ctx.lineTo(roadEnd - 12, route.roadY + roadWidth - 12);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+        }
+
+        function drawField() {
+            ctx.fillStyle = '#7b5a3c';
+            ctx.fillRect(field.x, field.y, field.width, field.height);
+            ctx.strokeStyle = '#5d4037';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(field.x, field.y, field.width, field.height);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+            for (let y = field.y + 18; y < field.y + field.height; y += 22) {
+                ctx.fillRect(field.x, y, field.width, 10);
+            }
+            for (let x = field.x + 18; x < field.x + field.width; x += 28) {
+                ctx.fillRect(x, field.y, 10, field.height);
+            }
+
+            ctx.fillStyle = '#e0d7c3';
+            ctx.font = '18px sans-serif';
+            ctx.fillText('Área de plantio', field.x + 12, field.y - 14);
         }
 
         function drawFactory() {
-            ctx.fillStyle = '#7b8e10';
+            ctx.fillStyle = '#455a64';
             ctx.fillRect(factory.x, factory.y, factory.width, factory.height);
-            ctx.fillStyle = '#aed581';
-            ctx.fillRect(factory.x + 12, factory.y + 14, factory.width - 24, 20);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '16px sans-serif';
-            ctx.fillText('FÁBRICA', factory.x + 18, factory.y + 32);
-            ctx.fillStyle = '#4e342e';
-            ctx.fillRect(factory.x + 18, factory.y + 54, factory.width - 36, 20);
-            ctx.fillStyle = '#4e342e';
+            ctx.fillStyle = '#cfd8dc';
+            ctx.fillRect(factory.x + 12, factory.y + 18, factory.width - 24, 32);
+            ctx.fillStyle = '#263238';
+            ctx.fillRect(factory.x + 18, factory.y + 70, 42, 82);
+            ctx.fillRect(factory.x + 74, factory.y + 70, 42, 82);
+            ctx.fillStyle = '#90a4ae';
+            ctx.fillRect(factory.x + 18, factory.y + 100, 42, 12);
+            ctx.fillRect(factory.x + 74, factory.y + 100, 42, 12);
+
+            ctx.fillStyle = '#37474f';
+            ctx.fillRect(factory.x + 132, factory.y + 76, 54, 66);
+            ctx.fillStyle = '#b0bec5';
+            ctx.fillRect(factory.x + 132, factory.y + 90, 54, 12);
+            ctx.fillRect(factory.x + 132, factory.y + 110, 54, 12);
+
+            ctx.fillStyle = '#78909c';
+            ctx.fillRect(factory.x + factory.width - 34, factory.y - 24, 24, 34);
+            ctx.fillRect(factory.x + factory.width - 60, factory.y - 18, 18, 28);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             ctx.beginPath();
-            ctx.moveTo(factory.x + 12, factory.y + 74);
-            ctx.lineTo(factory.x + 36, factory.y + 34);
-            ctx.lineTo(factory.x + 58, factory.y + 74);
-            ctx.lineTo(factory.x + 80, factory.y + 34);
-            ctx.lineTo(factory.x + 102, factory.y + 74);
-            ctx.lineTo(factory.x + 128, factory.y + 34);
-            ctx.lineTo(factory.x + 138, factory.y + 74);
-            ctx.closePath();
+            ctx.arc(factory.x + factory.width - 22, factory.y - 30, 10, 0, Math.PI * 2);
             ctx.fill();
+            ctx.beginPath();
+            ctx.arc(factory.x + factory.width - 28, factory.y - 48, 12, 0, Math.PI * 2);
+            ctx.fill();
+
         }
 
         function drawCorns() {
             corns.forEach(corn => {
                 if (corn.harvested) {
-                    ctx.fillStyle = '#8d6e63';
-                    ctx.fillRect(corn.x - 6, corn.y + 10, 14, 8);
+                    ctx.fillStyle = '#6d4c41';
+                    ctx.fillRect(corn.x - 8, corn.y + 14, 16, 6);
                 } else {
                     ctx.fillStyle = '#f9a825';
-                    ctx.fillRect(corn.x - 8, corn.y - 16, 16, 32);
-                    ctx.fillStyle = '#388e3c';
                     ctx.beginPath();
-                    ctx.moveTo(corn.x, corn.y - 16);
-                    ctx.lineTo(corn.x - 14, corn.y + 12);
-                    ctx.lineTo(corn.x + 14, corn.y + 12);
+                    ctx.ellipse(corn.x, corn.y, 10, 18, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#2e7d32';
+                    ctx.beginPath();
+                    ctx.moveTo(corn.x - 4, corn.y + 10);
+                    ctx.lineTo(corn.x - 18, corn.y + 26);
+                    ctx.lineTo(corn.x - 2, corn.y + 20);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(corn.x + 4, corn.y + 10);
+                    ctx.lineTo(corn.x + 18, corn.y + 26);
+                    ctx.lineTo(corn.x + 2, corn.y + 20);
                     ctx.closePath();
                     ctx.fill();
 
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = '10px sans-serif';
-                    ctx.fillText('MILHO', corn.x - 14, corn.y + 28);
+                    ctx.fillStyle = '#8d6e63';
+                    ctx.fillRect(corn.x - 8, corn.y + 14, 16, 6);
                 }
             });
         }
@@ -330,49 +440,48 @@
         function drawTractor() {
             ctx.save();
             ctx.translate(tractor.x + tractor.width / 2, tractor.y + tractor.height / 2);
-            ctx.fillStyle = '#1e4620';
+            ctx.fillStyle = '#d84315';
             ctx.fillRect(-tractor.width / 2, -tractor.height / 2, tractor.width, tractor.height);
-            ctx.fillStyle = '#2e7d32';
-            ctx.fillRect(-tractor.width / 2 + 8, -tractor.height / 2 - 12, 36, 14);
-            ctx.fillStyle = '#4e342e';
+            ctx.fillStyle = '#bf360c';
+            ctx.fillRect(-tractor.width / 2 + 8, -tractor.height / 2 - 16, 40, 14);
+            ctx.fillStyle = '#263238';
             ctx.beginPath();
-            ctx.arc(-18, tractor.height / 2 - 2, 10, 0, Math.PI * 2);
+            ctx.arc(-22, tractor.height / 2 - 4, 12, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(18, tractor.height / 2 - 2, 10, 0, Math.PI * 2);
+            ctx.arc(22, tractor.height / 2 - 4, 12, 0, Math.PI * 2);
             ctx.fill();
-            ctx.fillStyle = '#ffd54f';
-            ctx.fillRect(-tractor.width / 2 + 4, -tractor.height / 2 + 4, 12, 8);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(-tractor.width / 2 + 6, -tractor.height / 2 + 4, 16, 8);
             ctx.restore();
         }
 
-        function drawTruck() {
-            ctx.fillStyle = '#546e7a';
-            ctx.fillRect(truck.x, truck.y, truck.width, truck.height);
+        function drawTruck(yPosition = truck.y) {
             ctx.fillStyle = '#37474f';
-            ctx.fillRect(truck.x + truck.width - 56, truck.y - 24, 56, 24);
+            ctx.fillRect(truck.x, yPosition, truck.width, truck.height);
             ctx.fillStyle = '#263238';
+            ctx.fillRect(truck.x + 10, yPosition + 10, 58, truck.height - 20);
+            ctx.fillStyle = '#78909c';
+            ctx.fillRect(truck.x + 70, yPosition + 12, truck.width - 90, truck.height - 24);
+            ctx.fillStyle = '#212121';
             ctx.beginPath();
-            ctx.arc(truck.x + 40, truck.y + truck.height, 18, 0, Math.PI * 2);
+            ctx.arc(truck.x + 34, yPosition + truck.height, 16, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(truck.x + truck.width - 40, truck.y + truck.height, 18, 0, Math.PI * 2);
+            ctx.arc(truck.x + truck.width - 34, yPosition + truck.height, 16, 0, Math.PI * 2);
             ctx.fill();
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '15px sans-serif';
-            ctx.fillText('CAMINHÃO', truck.x + 18, truck.y + 30);
             ctx.fillStyle = '#aed581';
-            ctx.fillRect(truck.x + 18, truck.y + truck.height + 18, truck.width - 36, 14);
+            ctx.fillRect(truck.x + 18, yPosition + truck.height + 16, truck.width - 36, 12);
             const progress = truck.load / truck.capacity;
             ctx.fillStyle = '#689f38';
-            ctx.fillRect(truck.x + 18, truck.y + truck.height + 18, (truck.width - 36) * progress, 14);
+            ctx.fillRect(truck.x + 18, yPosition + truck.height + 16, (truck.width - 36) * progress, 12);
             ctx.strokeStyle = '#33691e';
-            ctx.strokeRect(truck.x + 18, truck.y + truck.height + 18, truck.width - 36, 14);
+            ctx.strokeRect(truck.x + 18, yPosition + truck.height + 16, truck.width - 36, 12);
         }
 
         function drawTractorHalo() {
             ctx.save();
-            ctx.globalAlpha = 0.18;
+            ctx.globalAlpha = 0.14;
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
             ctx.arc(tractor.x + tractor.width / 2, tractor.y + tractor.height / 2, 52, 0, Math.PI * 2);
@@ -382,36 +491,43 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#ecf8f1';
+            ctx.fillStyle = '#8ecae6';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#aed581';
-            ctx.fillRect(0, 0, canvas.width, 110);
-            ctx.fillStyle = '#1b5e20';
-            ctx.font = '26px sans-serif';
-            ctx.fillText('Agro Forte, Futuro Sustentável', 70, 60);
+            ctx.fillStyle = '#77b24b';
+            ctx.fillRect(0, 120, canvas.width, canvas.height - 120);
 
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '14px sans-serif';
-            ctx.fillText('Campo de colheita à esquerda • Caminhão à direita', 70, 90);
-
+            drawFarmBuildings();
+            drawRoad();
             drawField();
+            drawFence();
             drawFactory();
             drawCorns();
             drawTractorHalo();
             drawTractor();
             drawTruck();
 
-            ctx.fillStyle = '#33691e';
-            ctx.font = '15px sans-serif';
-            ctx.fillText('Espaço: colher milho | D: descarregar | R: reiniciar', 560, 400);
-            ctx.fillText('Use setas ou WASD para dirigir o trator.', 560, 424);
+            ctx.fillStyle = '#1b5e20';
+            ctx.font = '22px sans-serif';
+            ctx.fillText('Missão Agro: entregue na fábrica', 70, 50);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '14px sans-serif';
+
+            let phaseText = 'Controle o trator, colha o milho, carregue o caminhão e entregue na fábrica.';
             if (gamePhase === 'delivering') {
-                ctx.fillText('Caminhão indo para a fábrica...', 560, 440);
+                phaseText = 'Caminhão a caminho da fábrica pela estrada.';
             } else if (gamePhase === 'atFactory') {
-                ctx.fillText('Caminhão na fábrica. Aguarde a entrega...', 560, 440);
+                phaseText = 'Caminhão descarregando na fábrica.';
             } else if (gamePhase === 'returning') {
-                ctx.fillText('Caminhão voltando para a fazenda.', 560, 440);
+                phaseText = 'Caminhão voltando para a fazenda.';
+            } else if (gamePhase === 'completed') {
+                phaseText = 'Missão concluída! Caminhão voltou à fazenda.';
             }
+
+            ctx.fillText(phaseText, 70, 74);
+            ctx.fillStyle = '#1b5e20';
+            ctx.font = '15px sans-serif';
+            ctx.fillText('Espaço: colher milho | D: descarregar | R: reiniciar', 560, 420);
+            ctx.fillText('Use setas ou WASD para dirigir.', 560, 440);
         }
 
         window.addEventListener('keydown', (event) => {
