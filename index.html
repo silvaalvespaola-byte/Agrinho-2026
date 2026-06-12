@@ -65,13 +65,13 @@
 
         const field = { x: 70, y: 140, width: 320, height: 250 };
         const truckStart = { x: 420, y: 360, width: 150, height: 90 };
-        const truck = { x: truckStart.x, y: truckStart.y, width: truckStart.width, height: truckStart.height, load: 0, capacity: 18 };
+        const truck = { x: truckStart.x, y: truckStart.y, width: truckStart.width, height: truckStart.height, speed: 2.6, load: 0, capacity: 18 };
         const factory = { x: 680, y: 70, width: 210, height: 170 };
         const route = {
             farmExitY: 280,
             roadY: 280,
-            factoryEntryX: factory.x - truck.width - 18,
-            factoryEntryY: factory.y + factory.height - 44
+            factoryEntryX: factory.x - truck.width - 12,
+            factoryEntryY: factory.y + factory.height - truck.height - 10
         };
         const tractor = { x: field.x + field.width / 2 - 30, y: field.y + field.height + 18, width: 62, height: 30, speed: 3.8, cargo: 0, capacity: 12 };
         const corns = [];
@@ -241,8 +241,8 @@
             }
 
             if (gamePhase === 'delivering') {
-                if (truck.y > route.farmExitY) {
-                    truck.y = Math.max(truck.y - truck.speed, route.farmExitY);
+                if (truck.y > route.roadY) {
+                    truck.y = Math.max(truck.y - truck.speed, route.roadY);
                 } else if (truck.x < route.factoryEntryX) {
                     truck.x = Math.min(truck.x + truck.speed, route.factoryEntryX);
                 } else if (truck.y > route.factoryEntryY) {
@@ -265,10 +265,12 @@
             }
 
             if (gamePhase === 'returning') {
-                if (truck.y < route.farmExitY) {
-                    truck.y = Math.min(truck.y + truck.speed, route.farmExitY);
+                if (truck.y < route.roadY) {
+                    truck.y = Math.min(truck.y + truck.speed, route.roadY);
                 } else if (truck.x > truckStart.x) {
                     truck.x = Math.max(truck.x - truck.speed, truckStart.x);
+                } else if (truck.y < truckStart.y) {
+                    truck.y = Math.min(truck.y + truck.speed, truckStart.y);
                 } else {
                     truck.x = truckStart.x;
                     truck.y = truckStart.y;
@@ -335,9 +337,11 @@
             const roadWidth = 72;
             const roadX = truckStart.x + truckStart.width / 2 - roadWidth / 2;
             const roadEnd = factory.x - 18;
+            const turnX = route.factoryEntryX + truck.width / 2;
 
             ctx.fillStyle = '#6d6e71';
             ctx.fillRect(roadX, route.roadY, roadEnd - roadX, roadWidth);
+            ctx.fillRect(turnX - roadWidth / 2, route.factoryEntryY, roadWidth, route.roadY - route.factoryEntryY);
             ctx.fillRect(roadX + roadWidth / 2 - 8, route.roadY + roadWidth, 16, truckStart.y + truckStart.height - route.roadY);
 
             ctx.strokeStyle = '#f3f3f3';
@@ -350,6 +354,10 @@
             ctx.beginPath();
             ctx.moveTo(roadX + roadWidth / 2, route.roadY + roadWidth - 12);
             ctx.lineTo(roadEnd - 12, route.roadY + roadWidth - 12);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(turnX, route.factoryEntryY + 16);
+            ctx.lineTo(turnX, route.roadY - 16);
             ctx.stroke();
             ctx.setLineDash([]);
 
